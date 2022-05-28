@@ -98,6 +98,8 @@ def read_packets():
     while True:
         pkt = sniff(count=1)
 
+        # check if packet is for victim
+
         # read packets / add packets to file
 
         # send packets to victim
