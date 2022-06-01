@@ -103,22 +103,10 @@ def poison_confirm():
             pkt.show()
             print()
 
-def read_packets():
-    while True:
-        pkt = sniff(count=1)
-
-        # check if packet is for victim
-
-        # read packets / add packets to file
-
-        # send packets to victim
-
-
 def main():
     #use daemon=True to run in background and stop when application quits
-    poison_thread =  threading.Thread(target=arp_poison).start()
-    poison_confirm_thread = threading.Thread(target=poison_confirm).start()
-    read_packets_thread = threading.Thread(target=read_packets).start()
+    poison_thread =  threading.Thread(target=arp_poison, daemon=True).start()
+    poison_confirm_thread = threading.Thread(target=poison_confirm, daemon=True).start()
 
     # wait for ctrl+c to exit application
     try: 
