@@ -2,8 +2,7 @@ import packet_sniffer
 
 def check_packet(pkt):
     if pkt.haslayer(DNS):
-        print(pkt.summary())
-        pkt.show()
+        print("     - {}".format(pkt[DNS].show()))
     return pkt
 
 if __name__ == "__main__":

@@ -41,7 +41,7 @@ def main(function, victims, attacker_mac, options):
             time.sleep(1)
     except KeyboardInterrupt:
         print("\n[*] Shutting down...")
-        sys.exit(0)
+        sys.exit(0) 
 
 if __name__ == "__main__":
     main(check_packet)

