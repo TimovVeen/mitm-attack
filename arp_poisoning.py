@@ -1,5 +1,6 @@
-from click import option
+#from click import option
 from scapy.all import *
+from ipaddress import ip_address
 load_layer("http") 
 load_layer("dns") 
 
@@ -25,8 +26,8 @@ PORT_STEAL_SEND_DELAY = 2000  # microseconds
 
 def get_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--target", dest="targets", required=True, nargs="+", help="Array of target IPs") # if you want to be able to add more 
-    parser.add_argument("-g", "--gateway", dest="gateways", required=True, nargs="+", help="Array of gateway IPs")
+    parser.add_argument("-t", "--target", type=ip_address, dest="targets", required=True, nargs="+", help="Array of target IPs") # if you want to be able to add more 
+    parser.add_argument("-g", "--gateway", type=ip_address, dest="gateways", required=True, nargs="+", help="Array of gateway IPs")
     parser.add_argument("-i", "--iface", dest="iface", default="enp0s3", help="Interface [default: %(default)]")
 
     parser.add_argument("-d", "--dns-spoof", dest="dns-spoof", default=False, help="dns-spoof [default: %(default)]")
@@ -123,14 +124,16 @@ def main():
     targets = []
     gateways = []
     
-    for target in options.targets:
+    for targetAdr in options.targets:
+        target = format(targetAdr)        
         target_mac = get_mac(target)
         if(target_mac == 0):
             print("[!] MAC of Target: {} not found".format(target))
             sys.exit(0)
         targets.append(type('obj', (object,), {"mac": target_mac, "ip": target}))
         
-    for gateway in options.gateways:
+    for gatewayAdr in options.gateways:
+        gateway = format(gatewayAdr)
         gateway_mac = get_mac(gateway)
         if(gateway_mac == 0):
             print("[!] MAC of Gateway: {} not found".format(gateway))
