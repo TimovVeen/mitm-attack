@@ -1,4 +1,3 @@
-from click import option
 from scapy.all import *
 load_layer("http") 
 load_layer("dns") 
@@ -24,15 +23,17 @@ PORT_STEAL_DELAY = 10         # seconds
 PORT_STEAL_SEND_DELAY = 2000  # microseconds
 
 def get_arguments():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--target", dest="targets", required=True, nargs="+", help="Array of target IPs") # if you want to be able to add more 
+    parser = argparse.ArgumentParser(argparse.RawTextHelpFormatter)
+    parser.add_argument("-t", "--target", dest="targets", required=True, nargs="+", help="Array of target IPs") 
     parser.add_argument("-g", "--gateway", dest="gateways", required=True, nargs="+", help="Array of gateway IPs")
-    parser.add_argument("-i", "--iface", dest="iface", default="enp0s3", help="Interface [default: %(default)]")
+    parser.add_argument("-i", "--iface", dest="iface", default="enp0s3", help="Interface (default: %(default)s)")
 
-    parser.add_argument("-d", "--dns-spoof", dest="dns-spoof", default=False, help="dns-spoof [default: %(default)]")
-    parser.add_argument("-s", "--ssl-strip", dest="ssl_strip", default=False, help="ssl-strip [default: %(default)]")
+    parser.add_argument("-d", "--dns", dest="dns-spoof", action='store_true', help="use this argument if you want to use dns-spoof")
+    parser.add_argument("-u", "--url", dest="urls", nargs="+", help="Array of URLs to spoof with as last item the the ip to redirect to")
 
-    parser.add_argument("-v", "--verbose", dest="verbose", default=False, help="if verbosity is enabled [default: %(default)]")
+    parser.add_argument("-s", "--ssl", dest="ssl_strip", action='store_true', help="use this argument if you want to use ssl-strip")
+
+    parser.add_argument("-v", "--verbose", dest="verbose", action='store_true', help="use this argument if you want to use verbose mode")
     options = parser.parse_args()
     return options
 
