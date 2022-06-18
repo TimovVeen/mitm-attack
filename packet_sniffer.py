@@ -49,7 +49,7 @@ def check_packet(pkt, args):
 def read_packets(attacker, victims, gateway, function, options, packet_function_args):
     while True:
         pkt = sniff(count=1, iface=options.iface, filter="not arp and not icmp and ether dst "+attacker.mac)[0]
-
+        print(attacker.ip)
         if (pkt.haslayer(IP) and pkt[IP].dst == attacker.ip):
              continue
 
