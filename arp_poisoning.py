@@ -220,11 +220,11 @@ def main():
 
     if(options.ssl_strip):
         print("[*] Starting SSL strip thread...")
-        packet_sniffer.main(ssl_strip.check_packet, vic, gateways[0], attacker, options, None)
+        packet_sniffer.main(ssl_strip.check_packet, vic, attacker, gateways[0], options, None)
 
     if not options.dns_spoof and not options.ssl_strip:
         print("[*] Starting packet sniffing thread...")
-        packet_sniffer.main(packet_sniffer, vic, gateways[0], attacker, options, None)
+        packet_sniffer.main(packet_sniffer.check_packet, vic, attacker, gateways[0], options, None)
 
     # wait for ctrl+c to exit application
     try:

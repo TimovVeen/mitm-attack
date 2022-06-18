@@ -63,11 +63,11 @@ def read_packets(attacker, victims, gateway, function, options, packet_function_
         if (pkt.haslayer(IP)):
             for victim in victims:
                 # print(victim.ip)
-                if (pkt[IP].src == victim.ip):
+                if (pkt[IP].dst == victim.ip):
                     mac = victim.mac
 
                     print("[+] Packet found for " + victim.ip)  if options.verbose else 0
-                    print(pkt.summary())  if options.verbose else 0
+                    print(pkt.show())  if options.verbose else 0
 
                     pkt = function(pkt, packet_function_args)
 
