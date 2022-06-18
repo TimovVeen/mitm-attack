@@ -42,7 +42,7 @@ with context.wrap_socket(s, server_hostname=HOST) as ssl_sock:
 
     # print(ssock.version())
     scapy.config.conf.debug_dissector = True
-    print(h2.H2Frame)
+    print(h2.H2Frame.Raw)
     ss = supersocket.SSLStreamSocket(ssl_sock, basecls=h2.H2Frame)
     srv_set = ss.recv()
     srv_set.show()
