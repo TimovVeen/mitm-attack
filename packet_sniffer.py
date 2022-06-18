@@ -4,6 +4,8 @@ load_layer("http")
 import time
 import threading
   
+def check_packet(pkt, args):
+    return pkt
 
 
 
@@ -60,7 +62,8 @@ def read_packets(attacker, victims, gateway, function, options, packet_function_
 
         if (pkt.haslayer(IP)):
             for victim in victims:
-                if (pkt[IP].dst == victim.ip):
+                # print(victim.ip)
+                if (pkt[IP].src == victim.ip):
                     mac = victim.mac
 
                     print("[+] Packet found for " + victim.ip)  if options.verbose else 0

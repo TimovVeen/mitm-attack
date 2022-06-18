@@ -7,7 +7,7 @@ class DnsSpoofArgs:
 
 def check_packet(pkt, args: DnsSpoofArgs):
     if DNS in pkt and pkt[DNS].opcode == 0 and pkt[DNS].ancount == 0 and pkt.haslayer("DNS Question Record"):
-        print("[*] Checking DNS record: ", pkt["DNS Question Record"].qname)
+        print("[*] Checking DNS record: {} from ip {} to {}".format(pkt["DNS Question Record"].qname, pkt[IP].src, pkt[IP].dst))
         for url in args.urls:
             if url in str(pkt["DNS Question Record"].qname):
                 print("[+] DNS Spoofing: {}".format(pkt["DNS Question Record"].qname))
