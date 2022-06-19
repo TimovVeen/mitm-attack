@@ -43,3 +43,6 @@ The following arguments can be passed to define the behaviour of the tool:
   -u --url [URLS ...]           provide array or URLs to spoof, the last element is the ip victims will be redirected to
   -s, --ssl                     enable ssl-stripping
   -v, --verbose                 enable verbose mode (more comments)
+  
+==============================================================================
+==============================================================================
