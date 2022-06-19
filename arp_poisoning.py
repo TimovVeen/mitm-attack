@@ -140,7 +140,7 @@ def poison_confirm(targets, gateways):
                     for gateway in gateways:
                         if(pkt[ARP].pdst == gateway.ip):
                             arp_poison(targets, gateways)
-                            print("ARP broadcast from " + arpReply[ARP].psrc + " to " + arpReply[ARP].pdst)
+                            print("ARP broadcast from " + pkt[ARP].psrc + " to " + pkt[ARP].pdst)
 
 
         # print("[*] Received ARP packet:")
