@@ -206,7 +206,8 @@ def main():
 
     #use daemon=True to run in background and stop when application quits
     threading.Thread(target=arp_poison, args=(targets, gateways), daemon=True).start()
-    threading.Thread(target=poison_confirm, args=(targets, gateways), daemon=True).start()
+    if(options.silent):
+        threading.Thread(target=poison_confirm, args=(targets, gateways), daemon=True).start()
 
     time.sleep(ARP_POISON_WARM_UP)
 
