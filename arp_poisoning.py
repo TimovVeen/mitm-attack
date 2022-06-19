@@ -175,7 +175,7 @@ def main():
             sys.exit(0)
         targets.append(type('obj', (object,), {"mac": target_mac, "ip": target}))
 
-    if options.gateways.__len__() > 0:
+    if len(options.gateways) > 0:
         for gatewayAdr in options.gateways:
             gateway = format(gatewayAdr)
             gateway_mac = get_mac(gateway)
@@ -215,7 +215,7 @@ def main():
 
     if options.dns_spoof:
         print("[*] Starting DNS spoofing thread...")
-        if(options.urls.__len__() < 2):
+        if(len(options.urls) < 2):
             print("[!] Error: You need to specify at least 1 URL and 1 IP")
             sys.exit(0)
 
