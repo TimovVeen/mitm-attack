@@ -25,9 +25,9 @@ def ssl_request(http_request):
 
     r = None
     if method == HttpRequestType.GET:
-        r = requestget(url, params=payload, headers=headers, cookies=cookies)
+        r = requests.get(url, params=payload, headers=headers, cookies=cookies)
     elif method == HttpRequestType.POST:
-        r = requestpost(url, json=payload, headers=headers, cookies=cookies)
+        r = requests.post(url, json=payload, headers=headers, cookies=cookies)
     else:
         print("Unknown method: {}".format(method))
 
